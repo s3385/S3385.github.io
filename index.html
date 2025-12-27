@@ -40,6 +40,14 @@
             opacity: 0.9;
         }
 
+        .section-title {
+            color: white;
+            font-size: 1.3em;
+            margin: 30px 0 15px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
         .tabs {
             display: flex;
             gap: 15px;
@@ -59,6 +67,8 @@
             color: #667eea;
             transition: all 0.3s;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-decoration: none;
+            display: inline-block;
         }
 
         .tab-button:hover {
@@ -71,13 +81,22 @@
             color: white;
         }
 
+        .tab-button.external {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .tab-button.external:hover {
+            background: linear-gradient(135deg, #fa71cd 0%, #c471f5 100%);
+        }
+
         .iframe-container {
             background: white;
             border-radius: 15px;
             padding: 10px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            height: calc(100vh - 250px);
-            min-height: 600px;
+            height: calc(100vh - 450px);
+            min-height: 500px;
         }
 
         iframe {
@@ -115,7 +134,7 @@
             }
             
             .iframe-container {
-                height: calc(100vh - 350px);
+                height: calc(100vh - 500px);
             }
         }
     </style>
@@ -123,10 +142,11 @@
 <body>
     <div class="container">
         <header>
-            <h1>📚 我的网站</h1>
+            <h1>📚 我的学习与工作网站</h1>
             <p class="subtitle">快速访问常用平台</p>
         </header>
 
+        <div class="section-title">📺 可嵌入网站（点击在下方显示）</div>
         <div class="tabs">
             <button class="tab-button active" onclick="loadSite('https://www.bilibili.com', this)">
                 📺 哔哩哔哩
@@ -134,17 +154,8 @@
             <button class="tab-button" onclick="loadSite('https://www.cnki.net', this)">
                 📖 中国知网
             </button>
-            <button class="tab-button" onclick="loadSite('https://www.zhihu.com', this)">
-                💬 知乎
-            </button>
             <button class="tab-button" onclick="loadSite('https://www.doubao.com', this)">
                 🤖 豆包
-            </button>
-            <button class="tab-button" onclick="loadSite('https://chat.deepseek.com/sign_in', this)">
-                🧠 DeepSeek
-            </button>
-            <button class="tab-button" onclick="loadSite('https://www.webofscience.com', this)">
-                🔬 Web of Science
             </button>
         </div>
 
@@ -154,8 +165,21 @@
             <iframe id="mainFrame" src="https://www.bilibili.com" title="网页内容"></iframe>
         </div>
 
+        <div class="section-title">🚀 外部网站（点击在新标签页打开）</div>
+        <div class="tabs">
+            <a class="tab-button external" href="https://www.zhihu.com" target="_blank">
+                💬 知乎 ↗
+            </a>
+            <a class="tab-button external" href="https://chat.deepseek.com" target="_blank">
+                🧠 DeepSeek ↗
+            </a>
+            <a class="tab-button external" href="https://www.webofscience.com" target="_blank">
+                🔬 Web of Science ↗
+            </a>
+        </div>
+
         <div class="info">
-            💡 提示：点击上方按钮切换不同网站
+            💡 提示：上方按钮在页面内切换，下方按钮在新标签页打开
         </div>
     </div>
 
@@ -163,7 +187,7 @@
         function loadSite(url, button) {
             const iframe = document.getElementById('mainFrame');
             const loading = document.getElementById('loading');
-            const buttons = document.querySelectorAll('.tab-button');
+            const buttons = document.querySelectorAll('.tab-button:not(.external)');
             
             // 移除所有按钮的active类
             buttons.forEach(btn => btn.classList.remove('active'));
