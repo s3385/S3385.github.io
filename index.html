@@ -49,12 +49,12 @@
         }
 
         .tab-button {
-            padding: 15px 40px;
+            padding: 15px 30px;
             background: white;
             border: none;
             border-radius: 30px;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             color: #667eea;
             transition: all 0.3s;
@@ -110,12 +110,12 @@
             }
             
             .tab-button {
-                padding: 12px 25px;
-                font-size: 16px;
+                padding: 12px 20px;
+                font-size: 14px;
             }
             
             .iframe-container {
-                height: calc(100vh - 300px);
+                height: calc(100vh - 350px);
             }
         }
     </style>
@@ -123,8 +123,8 @@
 <body>
     <div class="container">
         <header>
-            <h1>📚 我的学习网站</h1>
-            <p class="subtitle">哔哩哔哩 & 中国知网</p>
+            <h1>📚 我的学习与工作网站</h1>
+            <p class="subtitle">快速访问常用平台</p>
         </header>
 
         <div class="tabs">
@@ -136,6 +136,15 @@
             </button>
             <button class="tab-button" onclick="loadSite('https://www.zhihu.com', this)">
                 💬 知乎
+            </button>
+            <button class="tab-button" onclick="loadSite('https://www.doubao.com', this)">
+                🤖 豆包
+            </button>
+            <button class="tab-button" onclick="loadSite('https://chat.deepseek.com', this)">
+                🧠 DeepSeek
+            </button>
+            <button class="tab-button" onclick="loadSite('https://www.webofscience.com', this)">
+                🔬 Web of Science
             </button>
         </div>
 
