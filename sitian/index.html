@@ -309,7 +309,7 @@
 
           <div class="note">
             <h3>古法小注</h3>
-            <p>古人立圭表以测日影，制日晷以定时刻，择仪器以辨天体方位。今将纬度、经度、历日与时刻入数，以现代天文公式推算赤纬、时角、日高、方位、昼长及板面入射角，以存古意而证今算。</p>
+            <p>古人立圭表以测日影，制日晷以定时刻，择仪器以辨天体方位。今将纬度、经度、历日与时刻入数，由浏览器中的 Pyodide 运行 Python，并按课程太阳几何公式推算赤纬、时角、日高、方位、昼长及板面入射角，以存古意而证今算。</p>
             <span class="stamp">司天</span>
           </div>
 
@@ -385,31 +385,280 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-const D2R=Math.PI/180, R2D=180/Math.PI;
+const D2R=Math.PI/180;
 function clamp(x,a,b){return Math.min(b,Math.max(a,x))}
 function norm360(x){return ((x%360)+360)%360}
 function pad(n){return String(Math.floor(n)).padStart(2,'0')}
 function fmtClock(min){if(!Number.isFinite(min))return '—';min=((min%1440)+1440)%1440;let h=Math.floor(min/60),m=Math.round(min%60);if(m===60){m=0;h=(h+1)%24}return `${pad(h)}:${pad(m)}`}
-function doy(y,m,d){return Math.floor((Date.UTC(y,m-1,d)-Date.UTC(y,0,0))/86400000)}
-function solarCore(lat,lon,tz,y,m,d,minutes){
-  const n=doy(y,m,d),hour=minutes/60;
-  const gamma=2*Math.PI/365*(n-1+(hour-12)/24);
-  const eq=229.18*(0.000075+0.001868*Math.cos(gamma)-0.032077*Math.sin(gamma)-0.014615*Math.cos(2*gamma)-0.040849*Math.sin(2*gamma));
-  const decl=0.006918-0.399912*Math.cos(gamma)+0.070257*Math.sin(gamma)-0.006758*Math.cos(2*gamma)+0.000907*Math.sin(2*gamma)-0.002697*Math.cos(3*gamma)+0.00148*Math.sin(3*gamma);
-  let tst=(minutes+eq+4*lon-60*tz)%1440;if(tst<0)tst+=1440;
-  let ha=tst/4-180;if(ha<-180)ha+=360;
-  const phi=lat*D2R,H=ha*D2R;
-  const cosz=clamp(Math.sin(phi)*Math.sin(decl)+Math.cos(phi)*Math.cos(decl)*Math.cos(H),-1,1);
-  const zen=Math.acos(cosz),alt=90-zen*R2D;
-  let az=norm360(Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(decl)*Math.cos(phi))*R2D+180);
-  if(Math.abs(Math.sin(zen))<1e-8)az=180;
-  return {eq,decl:decl*R2D,tst,ha,alt,az};
-}
 function compassName(az){const n=['北方','东北','东方','东南','南方','西南','西方','西北'];return n[Math.round(norm360(az)/45)%8]}
 function branchName(min){const h=((min/60)%24+24)%24;const names=['子时','丑时','寅时','卯时','辰时','巳时','午时','未时','申时','酉时','戌时','亥时'];return names[Math.floor(((h+1)%24)/2)]}
 function setMetric(id,num,unit=''){const el=$(id);if(!el)return;if(num===null||num===undefined||num==='—'){el.innerHTML='<span class="num">—</span>';return}el.innerHTML=`<span class="num">${num}</span>${unit?`<span class="unit">${unit}</span>`:''}`}
+
+let pyodide=null,pyReady=false,pyLoading=null;
+const PY_SOURCE=String.raw`
+from math import sin, cos, tan, asin, acos, atan2, radians, degrees, pi
+from datetime import date
+import json
+
+# =========================
+# 司天日晷推步仪 · Python 公式核心
+# 方位角约定：
+#   课件太阳方位角 gamma_s：正南=0°，向西为正，向东为负，范围[-180°,180°]
+#   页面罗盘方位 az_n：正北=0°，东=90°，南=180°，西=270°
+# =========================
+
+def _clamp(x, a=-1.0, b=1.0):
+    return max(a, min(b, x))
+
+def _norm180(x):
+    return (x + 180.0) % 360.0 - 180.0
+
+def day_of_year(year, month, day):
+    """年内日序 n。"""
+    return date(year, month, day).timetuple().tm_yday
+
+def annual_angle(n, hour):
+    """周年角 Γ = 2π/365 × [n-1+(H-12)/24]。"""
+    return 2.0 * pi / 365.0 * (n - 1.0 + (hour - 12.0) / 24.0)
+
+def equation_of_time(Gamma):
+    """均时差 E，单位 min。"""
+    return 229.18 * (
+        0.000075
+        + 0.001868 * cos(Gamma)
+        - 0.032077 * sin(Gamma)
+        - 0.014615 * cos(2.0 * Gamma)
+        - 0.040849 * sin(2.0 * Gamma)
+    )
+
+def solar_declination(Gamma):
+    """太阳赤纬 δ，返回弧度。"""
+    return (
+        0.006918
+        - 0.399912 * cos(Gamma)
+        + 0.070257 * sin(Gamma)
+        - 0.006758 * cos(2.0 * Gamma)
+        + 0.000907 * sin(2.0 * Gamma)
+        - 0.002697 * cos(3.0 * Gamma)
+        + 0.001480 * sin(3.0 * Gamma)
+    )
+
+def true_solar_time(minutes, longitude, timezone, E):
+    """真太阳时 Ts = t + E + 4λ - 60Z，单位 min。"""
+    return (minutes + E + 4.0 * longitude - 60.0 * timezone) % 1440.0
+
+def solar_hour_angle(tst):
+    """太阳时角 τ = Ts/4 - 180°。午前负、午后正。"""
+    tau = tst / 4.0 - 180.0
+    if tau < -180.0:
+        tau += 360.0
+    return tau
+
+def solar_altitude(phi_deg, delta_rad, tau_deg):
+    """
+    太阳高度角 h：
+    sin h = sinφ sinδ + cosφ cosδ cosτ
+    """
+    phi = radians(phi_deg)
+    tau = radians(tau_deg)
+    sin_h = (
+        sin(phi) * sin(delta_rad)
+        + cos(phi) * cos(delta_rad) * cos(tau)
+    )
+    return degrees(asin(_clamp(sin_h)))
+
+def solar_azimuth_course(phi_deg, delta_rad, tau_deg, h_deg):
+    """
+    课件式(2-7)、(2-8)太阳方位角 γs（正南0°，西正东负）：
+      cosγs = (sin h sinφ - sinδ) / (cos h cosφ)
+      sinγs = cosδ sinτ / cos h
+    用 atan2(sinγs, cosγs) 自动判定象限。
+    """
+    phi = radians(phi_deg)
+    tau = radians(tau_deg)
+    h = radians(h_deg)
+    cos_h = cos(h)
+    denom = cos_h * cos(phi)
+    if abs(cos_h) < 1e-12 or abs(denom) < 1e-12:
+        return 0.0
+    sin_gamma_s = cos(delta_rad) * sin(tau) / cos_h
+    cos_gamma_s = (sin(h) * sin(phi) - sin(delta_rad)) / denom
+    return degrees(atan2(sin_gamma_s, cos_gamma_s))
+
+def course_to_north_azimuth(gamma_s):
+    """将课件方位角 γs 转为页面罗盘方位：北0°、东90°、南180°、西270°。"""
+    return (gamma_s + 180.0) % 360.0
+
+def sunrise_hour_angle(phi_deg, delta_rad):
+    """
+    课件式(2-9)：cosτ0 = -tanφ tanδ。
+    返回 (τ0, 状态)，τ0 单位°。
+    """
+    phi = radians(phi_deg)
+    x = -tan(phi) * tan(delta_rad)
+    if x <= -1.0:
+        return 180.0, 'polar_day'
+    if x >= 1.0:
+        return 0.0, 'polar_night'
+    return degrees(acos(_clamp(x))), 'normal'
+
+def day_length_from_tau0(tau0_deg, status):
+    """课件式(2-11)昼长公式 T = 2τ0 / 15，单位 h。"""
+    if status == 'polar_day':
+        return 24.0
+    if status == 'polar_night':
+        return 0.0
+    return 2.0 * tau0_deg / 15.0
+
+def incidence_angle(phi_deg, delta_rad, tau_deg, beta_deg, panel_az_n_deg):
+    """
+    课件式(2-13)太阳入射角 θ。
+    beta：斜面倾角。
+    gamma：斜面方位角，课件约定正南0°、西正东负。
+    页面输入 panel_az_n_deg 为北0°，故先转换。
+
+    cosθ = sinδ(sinφ cosβ - cosφ sinβ cosγ)
+         + cosδ cosτ(cosφ cosβ + sinφ sinβ cosγ)
+         + cosδ sinβ sinγ sinτ
+    """
+    phi = radians(phi_deg)
+    tau = radians(tau_deg)
+    beta = radians(beta_deg)
+    gamma_deg = _norm180(panel_az_n_deg - 180.0)
+    gamma = radians(gamma_deg)
+
+    term1 = sin(delta_rad) * (
+        sin(phi) * cos(beta)
+        - cos(phi) * sin(beta) * cos(gamma)
+    )
+    term2 = cos(delta_rad) * cos(tau) * (
+        cos(phi) * cos(beta)
+        + sin(phi) * sin(beta) * cos(gamma)
+    )
+    term3 = (
+        cos(delta_rad)
+        * sin(beta)
+        * sin(gamma)
+        * sin(tau)
+    )
+    cos_theta = _clamp(term1 + term2 + term3)
+    return degrees(acos(cos_theta)), cos_theta, gamma_deg
+
+def solar_state(lat, lon, tz, year, month, day, minutes):
+    """把赤纬、均时差、真太阳时、时角、日高、方位角集中计算。"""
+    n = day_of_year(year, month, day)
+    hour = minutes / 60.0
+    Gamma = annual_angle(n, hour)
+    E = equation_of_time(Gamma)
+    delta = solar_declination(Gamma)
+    tst = true_solar_time(minutes, lon, tz, E)
+    tau = solar_hour_angle(tst)
+    h = solar_altitude(lat, delta, tau)
+    gamma_s = solar_azimuth_course(lat, delta, tau, h)
+    az_n = course_to_north_azimuth(gamma_s)
+    return {
+        'n': n,
+        'Gamma': Gamma,
+        'eq': E,
+        'decl': degrees(delta),
+        'tst': tst,
+        'ha': tau,
+        'alt': h,
+        'gamma_s': gamma_s,
+        'az': az_n,
+    }
+
+def calculate_all(data):
+    lat = float(data['lat'])
+    lon = float(data['lon'])
+    tz = float(data['tz'])
+    beta = float(data['tilt'])
+    panel_az_n = float(data['panelAz']) % 360.0
+    year = int(data['y'])
+    month = int(data['m'])
+    day = int(data['d'])
+    minutes = float(data['minutes'])
+
+    s = solar_state(lat, lon, tz, year, month, day, minutes)
+    delta_rad = radians(s['decl'])
+
+    # 日出日落与昼长：严格采用课件 h=0° 的式(2-9)。
+    tau0, polar_status = sunrise_hour_angle(lat, delta_rad)
+    daylen = day_length_from_tau0(tau0, polar_status)
+
+    # 钟表时下的太阳正午。由 Ts=t+E+4λ-60Z 令 Ts=720 min 反解。
+    noon = 720.0 - 4.0 * lon - s['eq'] + 60.0 * tz
+    if polar_status == 'normal':
+        sunrise = noon - 4.0 * tau0
+        sunset = noon + 4.0 * tau0
+    elif polar_status == 'polar_day':
+        sunrise = 0.0
+        sunset = 1440.0
+    else:
+        sunrise = None
+        sunset = None
+
+    theta, cos_theta, panel_gamma = incidence_angle(
+        lat, delta_rad, s['ha'], beta, panel_az_n
+    )
+
+    # 当日太阳高度轨迹也由同一套 Python 公式计算。
+    if polar_status == 'normal' and sunrise is not None and sunset is not None:
+        a = max(0.0, sunrise - 45.0)
+        b = min(1440.0, sunset + 45.0)
+    else:
+        a, b = 240.0, 1260.0
+
+    samples = []
+    t = a
+    while t <= b + 1e-9:
+        st = solar_state(lat, lon, tz, year, month, day, t)
+        if st['alt'] >= -1.0:
+            samples.append([t, st['alt']])
+        t += 8.0
+
+    return {
+        **s,
+        'tau0': tau0,
+        'daylen': daylen,
+        'sunrise': sunrise,
+        'noon': noon,
+        'sunset': sunset,
+        'polar_status': polar_status,
+        'inc': theta,
+        'cosInc': cos_theta,
+        'panel_gamma': panel_gamma,
+        'samples': samples,
+    }
+
+def calculate_from_json(text):
+    return json.dumps(calculate_all(json.loads(text)), ensure_ascii=False)
+`;
+
+async function initPython(){
+  if(pyLoading)return pyLoading;
+  const btn=$('calc'),err=$('error');
+  btn.disabled=true;btn.textContent='加载 Python…';
+  pyLoading=(async()=>{
+    try{
+      pyodide=await loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v314.0.7/full/'});
+      await pyodide.runPythonAsync(PY_SOURCE);
+      pyReady=true;
+      btn.disabled=false;btn.textContent='开始推算';
+      await calculate();
+    }catch(e){
+      pyReady=false;
+      btn.disabled=true;btn.textContent='Python 加载失败';
+      err.textContent=`Pyodide / Python 加载失败：${e&&e.message?e.message:e}。请检查网络后刷新页面。`;
+      err.className='error show';
+    }
+  })();
+  return pyLoading;
+}
+
 let placeMatches=[],selectedTimezone='';
 function placeLabel(p){return [p.name,p.admin1,p.country].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(' · ')}
 function zoneOffsetAt(timeZone,ds,ts){
@@ -438,12 +687,12 @@ function syncTimezoneFromPlace(){
   if(!Number.isFinite(off))return false;
   $('tz').value=formatOffset(off);return true;
 }
-function applyPlace(i){
+async function applyPlace(i){
   const p=placeMatches[i];if(!p)return;
   $('lat').value=Number(p.latitude).toFixed(4);$('lon').value=Number(p.longitude).toFixed(4);selectedTimezone=p.timezone||'';
   const hasOffset=syncTimezoneFromPlace();
   $('placeStatus').textContent=`已采用：${placeLabel(p)} · ${Number(p.latitude).toFixed(4)}°, ${Number(p.longitude).toFixed(4)}°${p.timezone?` · ${p.timezone}`:''}${hasOffset?` · UTC${+$('tz').value>=0?'+':''}${$('tz').value}`:''}`;
-  $('placeStatus').className='place-status ok';calculate();
+  $('placeStatus').className='place-status ok';await calculate();
 }
 async function searchPlace(){
   const q=$('place').value.trim(),btn=$('placeSearch'),sel=$('placeResults'),status=$('placeStatus');
@@ -456,22 +705,25 @@ async function searchPlace(){
     placeMatches=Array.isArray(data.results)?data.results:[];
     if(!placeMatches.length){status.textContent='未找到匹配地区，可尝试“城市, 省/州”或邮编。';status.className='place-status warn';return}
     sel.innerHTML='';placeMatches.forEach((p,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=`${placeLabel(p)} · ${Number(p.latitude).toFixed(4)}, ${Number(p.longitude).toFixed(4)}${p.timezone?` · ${p.timezone}`:''}`;sel.appendChild(o)});
-    sel.className='place-results show';sel.value='0';applyPlace(0);
+    sel.className='place-results show';sel.value='0';await applyPlace(0);
     if(placeMatches.length>1)status.textContent+=' · 若非目标地点，请从下拉结果切换。';
   }catch(e){status.textContent=`检索失败：${e&&e.message?e.message:'请检查网络连接'}`;status.className='place-status bad'}
   finally{btn.disabled=false;btn.textContent='检索'}
 }
-function drawChart(params,main,sunrise,noon,sunset){
+
+function drawChart(params,result){
   const svg=$('chart'),W=760,H=300,L=62,R=18,T=28,B=46,PW=W-L-R,PH=H-T-B;
-  let a=Math.max(0,sunrise-45),b=Math.min(1440,sunset+45);if(!Number.isFinite(a)||!Number.isFinite(b)||b<=a){a=240;b=1260}
+  let a,b;
+  if(result.samples&&result.samples.length){a=result.samples[0][0];b=result.samples[result.samples.length-1][0]}
+  else{a=240;b=1260}
+  if(!Number.isFinite(a)||!Number.isFinite(b)||b<=a){a=240;b=1260}
   const x=t=>L+(t-a)/(b-a)*PW,y=v=>T+(90-v)/90*PH;
-  let path='';const samples=[];
-  for(let t=a;t<=b;t+=8){const s=solarCore(params.lat,params.lon,params.tz,params.y,params.m,params.d,t);if(s.alt>=-1)samples.push([t,s.alt])}
+  let path='';const samples=result.samples||[];
   samples.forEach((p,i)=>{path+=(i?'L':'M')+x(p[0]).toFixed(1)+' '+y(Math.max(0,p[1])).toFixed(1)+' '});
   const grid=[0,30,60,90].map(v=>`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="#bcb4a1" stroke-width="1"/><text x="${L-12}" y="${y(v)+4}" text-anchor="end" font-size="13" fill="#536158">${v}°</text>`).join('');
-  const marks=[sunrise,noon,sunset].filter(Number.isFinite).map(t=>`<line x1="${x(t)}" y1="${T}" x2="${x(t)}" y2="${H-B}" stroke="#c8c0ab" stroke-dasharray="4 5"/><text x="${x(t)}" y="${H-18}" text-anchor="middle" font-size="12" fill="#59675f">${fmtClock(t)}</text>`).join('');
-  const cx=x(params.minutes),cy=y(clamp(main.alt,0,90));
-  svg.innerHTML=`<rect x="${L}" y="${T}" width="${PW}" height="${PH}" fill="rgba(255,255,255,.14)" stroke="#b5af9d"/>${grid}${marks}<path d="${path}" fill="none" stroke="#d2a02c" stroke-width="3.2" stroke-linecap="round"/><line x1="${cx}" y1="${T}" x2="${cx}" y2="${H-B}" stroke="#a24031" stroke-width="1.5" stroke-dasharray="6 5"/><circle cx="${cx}" cy="${cy}" r="6.5" fill="#b83c2c" stroke="#f4e6c6" stroke-width="2"/><text x="${Math.min(cx+14,W-190)}" y="${Math.max(T+18,cy-12)}" font-size="13" font-weight="700" fill="#273d35">今时 ${fmtClock(params.minutes)} · 日高 ${main.alt.toFixed(2)}°</text><text x="${W/2}" y="${H-2}" text-anchor="middle" font-size="13" fill="#405148">时刻</text>`;
+  const marks=[result.sunrise,result.noon,result.sunset].filter(Number.isFinite).map(t=>`<line x1="${x(t)}" y1="${T}" x2="${x(t)}" y2="${H-B}" stroke="#c8c0ab" stroke-dasharray="4 5"/><text x="${x(t)}" y="${H-18}" text-anchor="middle" font-size="12" fill="#59675f">${fmtClock(t)}</text>`).join('');
+  const cx=x(params.minutes),cy=y(clamp(result.alt,0,90));
+  svg.innerHTML=`<rect x="${L}" y="${T}" width="${PW}" height="${PH}" fill="rgba(255,255,255,.14)" stroke="#b5af9d"/>${grid}${marks}<path d="${path}" fill="none" stroke="#d2a02c" stroke-width="3.2" stroke-linecap="round"/><line x1="${cx}" y1="${T}" x2="${cx}" y2="${H-B}" stroke="#a24031" stroke-width="1.5" stroke-dasharray="6 5"/><circle cx="${cx}" cy="${cy}" r="6.5" fill="#b83c2c" stroke="#f4e6c6" stroke-width="2"/><text x="${Math.min(cx+14,W-190)}" y="${Math.max(T+18,cy-12)}" font-size="13" font-weight="700" fill="#273d35">今时 ${fmtClock(params.minutes)} · 日高 ${result.alt.toFixed(2)}°</text><text x="${W/2}" y="${H-2}" text-anchor="middle" font-size="13" fill="#405148">时刻</text>`;
 }
 function drawCompass(sunAz,panelAz){
   const svg=$('compass'),cx=170,cy=126,r=82;
@@ -480,43 +732,45 @@ function drawCompass(sunAz,panelAz){
   const ticks=Array.from({length:24},(_,i)=>{const a=i*15;const p1=pt(a,r-4),p2=pt(a,r+2);return `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" stroke="#a39a82" stroke-width="1"/>`}).join('');
   svg.innerHTML=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="rgba(255,255,255,.15)" stroke="#8f8972" stroke-width="2"/>${ticks}<circle cx="${cx}" cy="${cy}" r="${r-18}" fill="none" stroke="#b8b09b" stroke-width="1" stroke-dasharray="4 4"/><circle cx="${cx}" cy="${cy}" r="${r-34}" fill="none" stroke="#d0c6af" stroke-width="1" stroke-dasharray="3 5"/><line x1="${cx}" y1="${cy-r-8}" x2="${cx}" y2="${cy+r+8}" stroke="#b6ad98"/><line x1="${cx-r-8}" y1="${cy}" x2="${cx+r+8}" y2="${cy}" stroke="#b6ad98"/><text x="${cx}" y="22" text-anchor="middle" font-size="16" font-weight="700" fill="#20332e">子 · 北</text><text x="${cx}" y="249" text-anchor="middle" font-size="16" font-weight="700" fill="#20332e">午 · 南</text><text x="26" y="${cy+5}" font-size="16" font-weight="700" fill="#20332e">西</text><text x="303" y="${cy+5}" font-size="16" font-weight="700" fill="#20332e">东</text><line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="#288257" stroke-width="5" stroke-linecap="round"/><circle cx="${px}" cy="${py}" r="5" fill="#288257"/><line x1="${cx}" y1="${cy}" x2="${sx}" y2="${sy}" stroke="#b83928" stroke-width="3"/><circle cx="${sx}" cy="${sy}" r="7" fill="#b83928" stroke="#f4e5c4" stroke-width="2"/><circle cx="${cx}" cy="${cy}" r="5" fill="#666250"/><text x="${cx}" y="${cy+28}" text-anchor="middle" font-size="13" fill="#30463d">板向 ${panelAz.toFixed(1)}°</text>`;
 }
-function calculate(){
+
+async function calculate(){
   const err=$('error');err.className='error';err.textContent='';
+  if(!pyReady){if(pyLoading)await pyLoading;if(!pyReady)return}
   const lat=+$('lat').value,lon=+$('lon').value,tz=+$('tz').value,tilt=+$('tilt').value,panelAz=norm360(+$('panelAz').value),ds=$('date').value,ts=$('time').value;
   if(!ds||!ts||![lat,lon,tz,tilt,panelAz].every(Number.isFinite)){err.textContent='请完整填写各项数值。';err.className='error show';return}
   if(lat<-90||lat>90||lon<-180||lon>180||tz<-12||tz>14||tilt<0||tilt>90){err.textContent='输入超出合理范围：纬度 ±90°、经度 ±180°、时区 -12～+14、板倾 0～90°。';err.className='error show';return}
   const[y,m,d]=ds.split('-').map(Number),parts=ts.split(':').map(Number),minutes=parts[0]*60+parts[1]+(parts[2]||0)/60;
-  const s=solarCore(lat,lon,tz,y,m,d,minutes),phi=lat*D2R,dec=s.decl*D2R,zen0=90.833*D2R;
-  const denom=Math.cos(phi)*Math.cos(dec);let cH=Math.abs(denom)<1e-12?NaN:(Math.cos(zen0)-Math.sin(phi)*Math.sin(dec))/denom;
-  let sunrise=NaN,sunset=NaN,noon=720-4*lon-s.eq+60*tz,daylen;
-  if(!Number.isFinite(cH)){const noonAlt=solarCore(lat,lon,tz,y,m,d,noon).alt;daylen=noonAlt>-0.833?24:0;if(daylen===24){sunrise=0;sunset=1440}}
-  else if(cH<=-1){daylen=24;sunrise=0;sunset=1440}
-  else if(cH>=1){daylen=0}
-  else{const h0=Math.acos(clamp(cH,-1,1))*R2D;sunrise=noon-4*h0;sunset=noon+4*h0;daylen=(sunset-sunrise)/60}
-  const altR=s.alt*D2R,azR=s.az*D2R,beta=tilt*D2R,pa=panelAz*D2R;
-  const sx=Math.cos(altR)*Math.sin(azR),sy=Math.cos(altR)*Math.cos(azR),sz=Math.sin(altR),nx=Math.sin(beta)*Math.sin(pa),ny=Math.sin(beta)*Math.cos(pa),nz=Math.cos(beta);
-  const cosInc=clamp(sx*nx+sy*ny+sz*nz,-1,1),inc=Math.acos(cosInc)*R2D;
-  setMetric('decl',`${s.decl>=0?'+':''}${s.decl.toFixed(2)}`,'°');$('declD').textContent=s.decl>=0?'日行偏北':'日行偏南';
-  setMetric('ha',`${s.ha>=0?'+':''}${s.ha.toFixed(2)}`,'°');$('haD').textContent=s.ha<0?'未及日中':'已过日中';
-  setMetric('alt',`${s.alt.toFixed(2)}`,'°');$('altD').textContent=s.alt>=0?'日临地平之上':'太阳在地平线下';
-  setMetric('az',`${s.az.toFixed(2)}`,'°');$('azD').textContent=compassName(s.az);
-  setMetric('daylen',daylen===24?'24.00':daylen===0?'0.00':`${daylen.toFixed(2)}`,'h');
-  setMetric('inc',`${inc.toFixed(2)}`,'°');$('incD').textContent=cosInc>0?'阳光照临板面':'太阳位于板面背侧';
-  $('branch').textContent=branchName(s.tst);$('tst').textContent=fmtClock(s.tst);
-  $('sunrise').textContent=daylen===24?'极昼':daylen===0?'无日出':fmtClock(sunrise);$('noon').textContent=fmtClock(noon);$('sunset').textContent=daylen===24?'极昼':daylen===0?'无日落':fmtClock(sunset);
-  drawChart({lat,lon,tz,y,m,d,minutes},s,sunrise,noon,sunset);drawCompass(s.az,panelAz);
+  const payload={lat,lon,tz,tilt,panelAz,y,m,d,minutes};
+  try{
+    pyodide.globals.set('js_input',JSON.stringify(payload));
+    const raw=pyodide.runPython('calculate_from_json(js_input)');
+    const s=JSON.parse(raw);
+    setMetric('decl',`${s.decl>=0?'+':''}${s.decl.toFixed(2)}`,'°');$('declD').textContent=s.decl>=0?'日行偏北':'日行偏南';
+    setMetric('ha',`${s.ha>=0?'+':''}${s.ha.toFixed(2)}`,'°');$('haD').textContent=s.ha<0?'未及日中':'已过日中';
+    setMetric('alt',`${s.alt.toFixed(2)}`,'°');$('altD').textContent=s.alt>=0?'日临地平之上':'太阳在地平线下';
+    setMetric('az',`${s.az.toFixed(2)}`,'°');$('azD').textContent=`${compassName(s.az)} · 课件 γs ${s.gamma_s>=0?'+':''}${s.gamma_s.toFixed(2)}°`;
+    setMetric('daylen',s.daylen===24?'24.00':s.daylen===0?'0.00':`${s.daylen.toFixed(2)}`,'h');
+    setMetric('inc',`${s.inc.toFixed(2)}`,'°');$('incD').textContent=s.cosInc>0?'阳光照临板面':'太阳位于板面背侧';
+    $('branch').textContent=branchName(s.tst);$('tst').textContent=fmtClock(s.tst);
+    $('sunrise').textContent=s.polar_status==='polar_day'?'极昼':s.polar_status==='polar_night'?'无日出':fmtClock(s.sunrise);
+    $('noon').textContent=fmtClock(s.noon);
+    $('sunset').textContent=s.polar_status==='polar_day'?'极昼':s.polar_status==='polar_night'?'无日落':fmtClock(s.sunset);
+    drawChart({minutes},s);drawCompass(s.az,panelAz);
+  }catch(e){
+    err.textContent=`Python 计算失败：${e&&e.message?e.message:e}`;err.className='error show';
+  }
 }
+
 $('calc').addEventListener('click',calculate);
 $('placeSearch').addEventListener('click',searchPlace);
 $('place').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchPlace()}});
 $('placeResults').addEventListener('change',()=>applyPlace(+$('placeResults').value));
-$('reset').addEventListener('click',()=>{selectedTimezone='';placeMatches=[];$('place').value='';$('placeResults').className='place-results';$('placeStatus').textContent='输入至少 2 个字符，可检索城市、地区或邮编。';$('placeStatus').className='place-status';$('lat').value='39.9042';$('lon').value='116.4074';$('date').value='2024-06-21';$('time').value='12:00:00';$('tz').value='8';$('tilt').value='30';$('panelAz').value='180';calculate()});
+$('reset').addEventListener('click',async()=>{selectedTimezone='';placeMatches=[];$('place').value='';$('placeResults').className='place-results';$('placeStatus').textContent='输入至少 2 个字符，可检索城市、地区或邮编。';$('placeStatus').className='place-status';$('lat').value='39.9042';$('lon').value='116.4074';$('date').value='2024-06-21';$('time').value='12:00:00';$('tz').value='8';$('tilt').value='30';$('panelAz').value='180';await calculate()});
 for(const id of ['lat','lon','tilt','panelAz'])$(id).addEventListener('change',calculate);
-for(const id of ['date','time'])$(id).addEventListener('change',()=>{syncTimezoneFromPlace();calculate()});
-$('tz').addEventListener('change',()=>{selectedTimezone='';calculate()});
+for(const id of ['date','time'])$(id).addEventListener('change',async()=>{syncTimezoneFromPlace();await calculate()});
+$('tz').addEventListener('change',async()=>{selectedTimezone='';await calculate()});
 $('lat').addEventListener('input',()=>{selectedTimezone=''});$('lon').addEventListener('input',()=>{selectedTimezone=''});
-calculate();
-// GitHub Pages 单文件版：无需本地 Service Worker。
+initPython();
 </script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"3341080d8f324c64bf8190c05f6fb407","r":1,"spa":2}' crossorigin="anonymous"></script>
