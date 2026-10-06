@@ -1,0 +1,524 @@
+<!doctype html>
+<!-- GitHub Pages 单文件版：无需 Python，本文件可直接放在 /sitian/index.html -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#244f43" />
+  <title>司天日晷推步仪</title>
+  <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMyMTRmNDEiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjMwIiByPSIxNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZWFkN2EzIiBzdHJva2Utd2lkdGg9IjMiLz48cGF0aCBkPSJNMzIgMTJ2MzZNMTQgMzBoMzYiIHN0cm9rZT0iI2VhZDdhMyIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+" type="image/svg+xml" />
+  <style>
+    :root{
+      --paper:#f4eddd;
+      --paper-deep:#eadfc8;
+      --paper-light:#fbf6e9;
+      --ink:#163a31;
+      --ink-2:#31594d;
+      --ink-soft:#6f8179;
+      --jade:#315f52;
+      --jade-deep:#1c493d;
+      --jade-pale:#7d9b8e;
+      --ochre:#9b7448;
+      --gold:#b99755;
+      --gold-pale:#d5c08d;
+      --cinnabar:#9f4938;
+      --line:rgba(38,82,69,.72);
+      --line-soft:rgba(49,95,82,.26);
+      --shadow:0 14px 34px rgba(54,50,39,.13);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:#d8d0bf;color:var(--ink)}
+    body{
+      font-family:"Noto Serif SC","Source Han Serif SC","Songti SC","STSong","SimSun",serif;
+      background:
+        radial-gradient(circle at 10% 14%,rgba(255,255,255,.45) 0 85px,transparent 86px),
+        radial-gradient(circle at 86% 18%,rgba(177,116,76,.08) 0 110px,transparent 111px),
+        repeating-linear-gradient(0deg,rgba(72,62,43,.022) 0 1px,transparent 1px 5px),
+        linear-gradient(#ddd6c7,#d4ccba);
+    }
+    button,input{font:inherit}
+    button{touch-action:manipulation}
+    .app{max-width:1500px;margin:0 auto;padding:14px}
+    .book{
+      position:relative;overflow:hidden;
+      border:2px solid var(--jade-deep);
+      background:
+        radial-gradient(circle at 20% 23%,rgba(255,255,255,.72),transparent 34%),
+        radial-gradient(circle at 78% 66%,rgba(49,95,82,.055),transparent 36%),
+        repeating-linear-gradient(0deg,rgba(101,90,65,.018) 0 1px,transparent 1px 4px),
+        var(--paper);
+      box-shadow:var(--shadow);
+    }
+    .book::before,.book::after{content:"";position:absolute;pointer-events:none;z-index:20}
+    .book::before{inset:7px;border:1px solid rgba(45,91,78,.55)}
+    .book::after{inset:13px;border:1px solid rgba(185,151,86,.34)}
+
+    /* 回纹边线 */
+    .meander{
+      position:absolute;left:19px;right:19px;height:14px;z-index:21;pointer-events:none;opacity:.82;
+      background:
+        linear-gradient(90deg,transparent 0 8px,var(--jade) 8px 10px,transparent 10px 20px,var(--jade) 20px 22px,transparent 22px 30px) 0 2px/30px 8px repeat-x,
+        linear-gradient(90deg,var(--jade) 0 10px,transparent 10px 20px,var(--jade) 20px 30px) 0 10px/30px 2px repeat-x;
+      mask:linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent);
+    }
+    .meander.top{top:184px}.meander.bottom{bottom:53px}
+
+    .hero{
+      position:relative;min-height:194px;padding:20px 28px 18px;
+      display:grid;grid-template-columns:205px minmax(0,1fr) 250px;gap:18px;align-items:center;
+      border-bottom:4px double var(--line);
+      overflow:hidden;
+    }
+    .hero-scene{position:absolute;inset:0;z-index:0;pointer-events:none}
+    .hero-scene svg{width:100%;height:100%;display:block}
+    .hero-left,.hero-center,.hero-right{position:relative;z-index:2;min-width:0}
+    .hero-left{display:flex;align-items:flex-start;gap:10px;height:142px}
+    .pine-art{width:82px;height:122px;flex:none;filter:saturate(.9)}
+    .bell-art{width:42px;height:102px;flex:none;margin-top:4px}
+    .plaque{
+      flex:none;width:72px;height:126px;display:grid;place-items:center;
+      writing-mode:vertical-rl;text-orientation:upright;
+      color:#f5e8b9;background:linear-gradient(180deg,#285f49,#173f32);
+      border:3px solid var(--gold);outline:1px solid #234b3f;
+      box-shadow:inset 0 0 0 4px rgba(219,194,132,.18);
+      font-size:23px;font-weight:800;letter-spacing:4px;line-height:1.1;
+      position:relative;
+    }
+    .plaque::before,.plaque::after{content:"";position:absolute;width:13px;height:13px;border-color:#e1c77e;border-style:solid;opacity:.8}
+    .plaque::before{left:5px;top:5px;border-width:2px 0 0 2px}.plaque::after{right:5px;bottom:5px;border-width:0 2px 2px 0}
+    .hero-center{padding:2px 10px 0}
+    h1{margin:0;font-size:clamp(40px,4vw,61px);letter-spacing:.16em;font-weight:900;color:#12392e;line-height:1.08}
+    .subtitle{margin-top:10px;font-size:18px;line-height:1.65;letter-spacing:.19em;color:#314f45}
+    .hero-annotation{margin-top:16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;font-size:13px;letter-spacing:.2em;color:#435e54}
+    .seal-mini{display:inline-grid;place-items:center;width:20px;height:20px;border:1px solid var(--cinnabar);color:var(--cinnabar);font-size:11px;border-radius:2px;margin-left:5px;transform:rotate(-2deg)}
+    .hero-right{display:flex;justify-content:flex-end;align-items:flex-start;gap:14px;height:142px}
+    .vertical-copy{writing-mode:vertical-rl;text-orientation:mixed;color:#415f55;font-size:14px;letter-spacing:.27em;line-height:1.9;padding-top:4px;white-space:nowrap}
+    .instrument{width:138px;height:138px;flex:none;opacity:.9}
+
+    .layout{display:grid;grid-template-columns:34% 66%;position:relative}
+    .col{padding:20px 22px 24px;min-width:0}
+    .col.left{border-right:4px double var(--line)}
+    .panel-shell{
+      position:relative;min-height:100%;padding:18px 18px 17px;
+      border:1px solid rgba(51,96,82,.7);
+      background:linear-gradient(180deg,rgba(255,255,255,.33),rgba(255,255,255,.15));
+      box-shadow:inset 0 0 0 2px rgba(244,236,217,.8);
+    }
+    .panel-shell::before,.panel-shell::after{content:"";position:absolute;width:24px;height:24px;pointer-events:none}
+    .panel-shell::before{left:6px;top:6px;border-left:2px solid var(--jade);border-top:2px solid var(--jade);box-shadow:5px 5px 0 -3px var(--gold)}
+    .panel-shell::after{right:6px;bottom:6px;border-right:2px solid var(--jade);border-bottom:2px solid var(--jade);box-shadow:-5px -5px 0 -3px var(--gold)}
+
+    .section-title{display:flex;align-items:center;gap:13px;padding-bottom:12px;margin-bottom:15px;border-bottom:1px solid var(--line-soft);font-size:31px;font-weight:900;letter-spacing:.1em}
+    .section-title small{margin-left:auto;font-size:14px;font-weight:500;letter-spacing:.15em;color:#60746a;white-space:nowrap}
+    .badge{
+      width:50px;height:50px;display:grid;place-items:center;flex:none;
+      clip-path:polygon(25% 0,75% 0,100% 25%,100% 75%,75% 100%,25% 100%,0 75%,0 25%);
+      background:var(--jade-deep);border:2px solid var(--gold);color:#f8edc8;
+      font-size:28px;font-weight:900;box-shadow:inset 0 0 0 3px rgba(255,255,255,.12)
+    }
+    .small-motto{display:flex;justify-content:space-between;gap:12px;margin:-2px 0 13px;color:#60756b;font-size:13px;letter-spacing:.22em}
+
+    .place-search{margin:0 0 14px;padding:12px 13px;border:1px solid rgba(76,112,97,.52);background:rgba(255,255,255,.22);box-shadow:inset 0 0 0 2px rgba(244,236,217,.6)}
+    .place-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px;color:#24483e}
+    .place-head b{font-size:17px;letter-spacing:.12em}.place-head span{font-size:11px;color:#718078;letter-spacing:.08em}
+    .place-row{display:grid;grid-template-columns:minmax(0,1fr) 86px;gap:8px;align-items:center}
+    .place-row .control input{height:48px;font-size:16px;padding-left:16px}
+    .place-search-btn{height:48px;border:1px solid #8c7951;border-radius:3px;cursor:pointer;background:linear-gradient(180deg,#f4ead2,#e5d4af);color:#294239;font-size:15px;font-weight:800;letter-spacing:.08em}
+    .place-search-btn:disabled{opacity:.55;cursor:wait}
+    .place-results{display:none;width:100%;height:44px;margin-top:8px;padding:0 34px 0 12px;border:1px solid #b9b09c;border-radius:4px;background:rgba(255,255,255,.55);color:#28362f;font:600 14px/1.1 Georgia,"Times New Roman","Songti SC",serif;outline:none}
+    .place-results.show{display:block}.place-results:focus{border-color:var(--jade);box-shadow:0 0 0 3px rgb(49 95 82/.1)}
+    .place-status{min-height:17px;margin-top:7px;font-size:11px;line-height:1.45;color:#65776e;letter-spacing:.03em}
+    .place-status.ok{color:#2f6553}.place-status.warn{color:#895d2f}.place-status.bad{color:#8a352c}
+
+    .inputs{display:grid;gap:11px}
+    .field{display:grid;grid-template-columns:116px minmax(0,1fr);gap:13px;align-items:center}
+    .field-label{font-size:21px;font-weight:800;line-height:1.12}
+    .field-label small{display:block;margin-top:4px;font-size:12px;font-weight:500;color:#758078;letter-spacing:.1em}
+    .control{position:relative;min-width:0}
+    .control::before{content:"";position:absolute;left:9px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,transparent,rgba(49,95,82,.25),transparent);pointer-events:none}
+    input{
+      width:100%;height:56px;min-width:0;padding:0 16px 0 18px;
+      border:1px solid #b9b09c;border-radius:4px;background:rgba(255,255,255,.42);color:#28362f;
+      font:600 19px/1.1 Georgia,"Times New Roman","Songti SC",serif;outline:none;
+      font-variant-numeric: tabular-nums lining-nums;
+      box-shadow:inset 0 1px 5px rgba(84,72,51,.07)
+    }
+    input:focus{border-color:var(--jade);box-shadow:0 0 0 3px rgba(49,95,82,.1),inset 0 1px 5px rgba(84,72,51,.07)}
+    .error{display:none;margin-top:10px;padding:9px 11px;border:1px solid #b66d62;background:#fff1e9;color:#842f25;font-size:13px}.error.show{display:block}
+
+    .note{
+      margin-top:17px;padding:15px 17px 17px;position:relative;
+      border:1px solid #c5aa73;background:linear-gradient(180deg,#f7efde,#eee1c4);
+      box-shadow:inset 9px 0 0 rgba(181,145,75,.12),inset -9px 0 0 rgba(181,145,75,.06)
+    }
+    .note::before,.note::after{content:"";position:absolute;top:-5px;bottom:-5px;width:8px;border:1px solid #ad8e57;background:linear-gradient(180deg,#c8ab73,#a6834e,#c8ab73);border-radius:7px}
+    .note::before{left:-5px}.note::after{right:-5px}
+    .note h3{margin:0;font-size:19px;letter-spacing:.1em}.note p{margin:8px 0 0;font-size:14px;line-height:1.8;color:#44534c}
+    .stamp{position:absolute;right:14px;bottom:13px;width:29px;height:29px;display:grid;place-items:center;border:1px solid var(--cinnabar);color:var(--cinnabar);font-size:11px;border-radius:2px;transform:rotate(-4deg)}
+    .actions{display:flex;gap:15px;margin-top:15px}
+    .btn{
+      flex:1;min-height:50px;border:1px solid #9a8150;border-radius:3px;cursor:pointer;
+      background:linear-gradient(180deg,#f7efdf,#e9dac0);color:#2a3c34;
+      font-size:18px;font-weight:800;letter-spacing:.14em;box-shadow:inset 0 0 0 2px rgba(255,255,255,.3)
+    }
+    .btn.primary{color:#faefca;background:linear-gradient(180deg,#2d6552,#183f34);border-color:#c4a15e;box-shadow:inset 0 0 0 2px rgba(255,255,255,.1)}
+    .btn:focus-visible{outline:3px solid rgba(49,95,82,.23);outline-offset:2px}
+    @media (hover:hover) and (pointer:fine){.btn:hover{filter:brightness(1.025)}}
+
+    .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+    .card{
+      position:relative;overflow:hidden;min-height:138px;padding:16px 18px 14px;
+      border:1px solid rgba(102,126,115,.75);background:linear-gradient(180deg,rgba(255,255,255,.39),rgba(255,255,255,.22));
+    }
+    .card::before,.card::after{content:"";position:absolute;width:16px;height:16px;pointer-events:none}
+    .card::before{left:6px;top:6px;border-left:2px solid #4b7665;border-top:2px solid #4b7665}.card::after{right:6px;bottom:6px;border-right:2px solid #4b7665;border-bottom:2px solid #4b7665}
+    .card .art{position:absolute;inset:0;opacity:.18;pointer-events:none}
+    .card .art svg{width:100%;height:100%}
+    .card .k{position:relative;z-index:1;font-size:17px;font-weight:800;letter-spacing:.11em}
+    .card .v{position:relative;z-index:1;margin-top:9px;display:flex;align-items:flex-start;justify-content:flex-start;gap:.06em;font:700 37px/1.08 Georgia,"Times New Roman",serif;color:#161b18;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums}
+    .card .v .num{display:inline-block;min-width:7.2ch;text-align:right;letter-spacing:0;font-variant-numeric:tabular-nums lining-nums}.card .v .unit{display:inline-block;min-width:.9ch;font-size:.78em;line-height:1.24;text-align:left}.card .d{position:relative;z-index:1;margin-top:7px;font-size:14px;color:#365146}
+
+    .sunline{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:14px 0;padding:11px 16px;border-top:1px solid rgba(70,108,94,.44);border-bottom:1px solid rgba(70,108,94,.44)}
+    .sunline .branch-label{font-size:13px;letter-spacing:.18em;color:#66786f}.sunline .branch{margin-top:2px;font-size:31px;font-weight:900;letter-spacing:.12em;color:#173d32}
+    .sunline .timebox{display:flex;align-items:center;gap:9px;white-space:nowrap;color:#304e44}.sunline .timebox span{font-size:14px;letter-spacing:.13em}.sunline .timebox strong{font-size:20px;font-variant-numeric:tabular-nums lining-nums}
+
+    .viz{display:grid;grid-template-columns:1.64fr 1fr;gap:13px}
+    .viz-panel{position:relative;overflow:hidden;min-height:365px;padding:14px;border:1px solid rgba(102,126,115,.75);background:linear-gradient(180deg,rgba(255,255,255,.33),rgba(255,255,255,.18))}
+    .viz-panel::before,.viz-panel::after{content:"";position:absolute;width:18px;height:18px;z-index:2;pointer-events:none}.viz-panel::before{left:6px;top:6px;border-left:2px solid #4b7665;border-top:2px solid #4b7665}.viz-panel::after{right:6px;bottom:6px;border-right:2px solid #4b7665;border-bottom:2px solid #4b7665}
+    .viz-bg{position:absolute;inset:0;opacity:.14;pointer-events:none}.viz-bg svg{width:100%;height:100%}
+    .viz-panel h2{position:relative;z-index:1;margin:0;font-size:21px;letter-spacing:.11em}.hint{position:relative;z-index:1;margin:5px 0 2px;color:#697970;font-size:12px;letter-spacing:.15em}
+    .chart-wrap{position:relative;z-index:1;height:300px}.chart-wrap svg,.compass-wrap svg{width:100%;height:100%;display:block}.compass-wrap{position:relative;z-index:1;height:260px}
+    .times{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;border-top:1px solid rgba(97,119,106,.43);padding-top:11px}.times b{display:block;font-size:15px;letter-spacing:.1em}.times span{font:700 19px Georgia,serif;color:#222923;font-variant-numeric:tabular-nums lining-nums}
+
+    .footer{position:relative;border-top:4px double var(--line);padding:11px 22px 14px;text-align:center;color:#53675e;background:rgba(255,255,255,.19)}
+    .footer .a{font-size:17px;letter-spacing:.22em}.footer .b{margin-top:4px;font-size:14px;letter-spacing:.22em}.footer .seal{position:absolute;right:24px;top:10px;width:19px;height:19px;border:1px solid var(--cinnabar);color:var(--cinnabar);font-size:10px;display:grid;place-items:center;border-radius:2px}
+    .side-note{position:absolute;right:8px;top:50%;transform:translateY(-50%);writing-mode:vertical-rl;letter-spacing:.24em;color:rgba(38,74,63,.65);font-size:11px;z-index:3}
+
+    @media (max-width:1180px){
+      .layout{grid-template-columns:1fr}.col.left{border-right:0;border-bottom:4px double var(--line)}
+      .cards{grid-template-columns:repeat(2,minmax(0,1fr))}.viz{grid-template-columns:1fr}
+      .hero{grid-template-columns:185px minmax(0,1fr)}.hero-right{display:none}.hero-scene .far-right{display:none}
+      .meander.top{top:184px}
+    }
+    @media (max-width:720px){
+      .app{padding:0}.book{border-width:0}.book::before,.book::after,.meander{display:none}
+      .hero{min-height:160px;padding:14px 12px 13px;grid-template-columns:130px minmax(0,1fr);gap:8px}.hero-left{height:104px;gap:5px}.pine-art{width:50px;height:88px}.bell-art{width:30px;height:78px}.plaque{width:45px;height:94px;font-size:16px;letter-spacing:2px}
+      h1{font-size:29px;letter-spacing:.1em}.subtitle{font-size:12px;line-height:1.75;letter-spacing:.11em}.hero-annotation{display:none}
+      .col{padding:12px}.panel-shell{padding:14px 11px}.section-title{font-size:23px}.section-title small{font-size:11px}.badge{width:42px;height:42px;font-size:22px}
+      .small-motto{font-size:11px;letter-spacing:.13em}.field{grid-template-columns:94px minmax(0,1fr);gap:9px}.field-label{font-size:17px}.field-label small{font-size:10px}input{height:50px;font-size:16px;padding-left:13px}
+      .actions{flex-direction:column}.cards{grid-template-columns:1fr}.card{min-height:122px}.card .v{font-size:33px}.sunline{align-items:flex-start;flex-direction:column;padding:10px 13px}.sunline .branch{font-size:26px}.viz-panel{min-height:334px}.chart-wrap{height:270px}.footer .a{font-size:12px;letter-spacing:.12em}.footer .b{font-size:11px;letter-spacing:.12em}.footer .seal{display:none}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="book">
+    <header class="hero">
+      <div class="hero-scene" aria-hidden="true">
+        <svg viewBox="0 0 1500 194" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="fadeMountain" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#496d61" stop-opacity=".13"/><stop offset="1" stop-color="#496d61" stop-opacity="0"/></linearGradient>
+            <linearGradient id="cityInk" x1="0" x2="1"><stop offset="0" stop-color="#35594d" stop-opacity=".16"/><stop offset="1" stop-color="#35594d" stop-opacity=".04"/></linearGradient>
+          </defs>
+          <circle cx="995" cy="53" r="32" fill="#bc7156" opacity=".5"/>
+          <path d="M430 151 L503 66 548 112 612 39 662 111 731 56 790 128 849 74 912 143" fill="none" stroke="#45685d" stroke-opacity=".14" stroke-width="12"/>
+          <path d="M397 166 C470 132 518 146 585 123 C647 103 700 135 765 117 C833 98 902 128 984 105 C1056 85 1114 104 1190 99" fill="none" stroke="#476c60" stroke-opacity=".11" stroke-width="18"/>
+          <path d="M1030 152 h123 v-8 h-12 v-41 l-29-13-29 13v41h-11v8z" fill="url(#cityInk)"/>
+          <path d="M1075 102 h74 l-17-13 h-41zM1064 126 h96 l-20-15 h-56z" fill="#35594d" opacity=".15"/>
+          <path d="M112 54 c22-16 41-13 49 0 8-10 27-10 34 3 13-4 24 2 27 13H102c1-7 4-11 10-16z" fill="none" stroke="#ba9858" stroke-opacity=".45" stroke-width="2"/>
+          <path class="far-right" d="M1290 50 c18-15 36-13 45-2 7-8 22-9 29 0 11-4 23 1 26 12h-105c1-4 2-7 5-10z" fill="none" stroke="#ba9858" stroke-opacity=".38" stroke-width="2"/>
+          <path d="M456 175 C646 161 747 169 932 154 C1099 141 1216 149 1390 135" fill="none" stroke="#6d8b7f" stroke-opacity=".08" stroke-width="2"/>
+        </svg>
+      </div>
+
+      <div class="hero-left" aria-hidden="true">
+        <svg class="pine-art" viewBox="0 0 82 122">
+          <path d="M41 30 C42 54 43 82 37 118" stroke="#735839" stroke-width="4" fill="none"/>
+          <path d="M42 48 C26 54 17 63 8 76M42 58 C55 64 65 70 75 80M39 76 C23 83 15 92 7 103" stroke="#765c3d" stroke-width="2.6" fill="none"/>
+          <g fill="#24483e">
+            <ellipse cx="16" cy="35" rx="15" ry="11"/><ellipse cx="32" cy="25" rx="17" ry="12"/><ellipse cx="49" cy="30" rx="15" ry="12"/><ellipse cx="59" cy="43" rx="18" ry="13"/>
+            <ellipse cx="22" cy="53" rx="18" ry="12"/><ellipse cx="42" cy="49" rx="17" ry="12"/><ellipse cx="66" cy="61" rx="14" ry="10"/><ellipse cx="18" cy="80" rx="15" ry="10"/>
+          </g>
+          <g stroke="#607e72" stroke-width="1" opacity=".75">
+            <path d="M6 34 h24M20 22 h24M39 29 h23M48 43 h24M11 54 h26M52 61 h24M8 80 h23"/>
+          </g>
+        </svg>
+        <svg class="bell-art" viewBox="0 0 42 102">
+          <path d="M21 0v22" stroke="#4f402a" stroke-width="2"/>
+          <path d="M9 24h24l-2 24c-1 12-19 12-20 0z" fill="#826b45" stroke="#58472e" stroke-width="2"/>
+          <path d="M7 49h28" stroke="#58472e" stroke-width="2"/>
+          <circle cx="21" cy="63" r="6" fill="#735d3c" stroke="#58472e"/>
+          <path d="M21 69v18" stroke="#58472e" stroke-width="2"/>
+        </svg>
+        <div class="plaque">钦天司历</div>
+      </div>
+
+      <div class="hero-center">
+        <h1>司天日晷推步仪</h1>
+        <div class="subtitle">观象授时 · 立表测影 · 推步日行 · 以古法之意证今日之算</div>
+        <div class="hero-annotation">
+          <span>司天监 · 推步日躔 · 考景定方<span class="seal-mini">监</span></span>
+          <span>天地有常　日月有度</span>
+        </div>
+      </div>
+
+      <div class="hero-right" aria-hidden="true">
+        <div class="vertical-copy">观天象<br>知时序<br>应四方</div>
+        <svg class="instrument" viewBox="0 0 140 140">
+          <g fill="none" stroke="#514b35" stroke-width="3">
+            <circle cx="70" cy="66" r="48"/>
+            <ellipse cx="70" cy="66" rx="48" ry="18" transform="rotate(28 70 66)"/>
+            <ellipse cx="70" cy="66" rx="48" ry="18" transform="rotate(-31 70 66)"/>
+            <ellipse cx="70" cy="66" rx="18" ry="48" transform="rotate(18 70 66)"/>
+            <path d="M70 10v112M15 66h110M33 116h74M41 121h58"/>
+          </g>
+          <circle cx="70" cy="66" r="4" fill="#514b35"/>
+          <path d="M23 115l-8 15M117 115l8 15" stroke="#514b35" stroke-width="4"/>
+        </svg>
+      </div>
+    </header>
+
+    <div class="meander top" aria-hidden="true"></div>
+
+    <main class="layout">
+      <section class="col left">
+        <div class="panel-shell">
+          <div class="section-title"><span class="badge">入</span>六仪入数 <small>地 · 日 · 时 · 旅</small></div>
+          <div class="small-motto"><span>经纬定所</span><span>历日纪辰</span><span>板向知影</span></div>
+
+          <div class="place-search">
+            <div class="place-head"><b>地区检索</b><span>自动填入地纬 · 地经 · 时区</span></div>
+            <div class="place-row">
+              <div class="control"><input id="place" type="search" autocomplete="off" placeholder="如：北京、成都、Tokyo、Paris"></div>
+              <button class="place-search-btn" id="placeSearch" type="button">检索</button>
+            </div>
+            <select id="placeResults" class="place-results" aria-label="地区检索结果"></select>
+            <div id="placeStatus" class="place-status">输入至少 2 个字符，可检索城市、地区或邮编。</div>
+          </div>
+
+          <div class="inputs">
+            <div class="field"><label class="field-label" for="lat">地纬<small>南北所垂</small></label><div class="control"><input id="lat" type="number" step="0.0001" min="-90" max="90" value="39.9042"></div></div>
+            <div class="field"><label class="field-label" for="lon">地经<small>东西所在</small></label><div class="control"><input id="lon" type="number" step="0.0001" min="-180" max="180" value="116.4074"></div></div>
+            <div class="field"><label class="field-label" for="date">历日<small>年月日</small></label><div class="control"><input id="date" type="date" value="2024-06-21"></div></div>
+            <div class="field"><label class="field-label" for="time">时刻<small>钟表时</small></label><div class="control"><input id="time" type="time" step="1" value="12:00:00"></div></div>
+            <div class="field"><label class="field-label" for="tz">时区<small>UTC 偏移</small></label><div class="control"><input id="tz" type="number" step="0.25" min="-12" max="14" value="8"></div></div>
+            <div class="field"><label class="field-label" for="tilt">板倾<small>仰角</small></label><div class="control"><input id="tilt" type="number" step="0.1" min="0" max="90" value="30"></div></div>
+            <div class="field"><label class="field-label" for="panelAz">板向<small>以北为零</small></label><div class="control"><input id="panelAz" type="number" step="0.1" min="0" max="360" value="180"></div></div>
+          </div>
+          <div id="error" class="error" role="alert"></div>
+
+          <div class="note">
+            <h3>古法小注</h3>
+            <p>古人立圭表以测日影，制日晷以定时刻，择仪器以辨天体方位。今将纬度、经度、历日与时刻入数，以现代天文公式推算赤纬、时角、日高、方位、昼长及板面入射角，以存古意而证今算。</p>
+            <span class="stamp">司天</span>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="calc" type="button">开始推算</button>
+            <button class="btn" id="reset" type="button">复归初始</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="col right">
+        <div class="panel-shell">
+          <div class="side-note">日月经天 · 江河行地</div>
+          <div class="section-title"><span class="badge">算</span>日晷推步 <small>天地之间 · 日行有度</small></div>
+          <div class="small-motto"><span>赤纬辨南北</span><span>时角考午正</span><span>方位定八方</span></div>
+
+          <div class="cards">
+            <article class="card">
+              <div class="art" aria-hidden="true"><svg viewBox="0 0 300 140"><path d="M184 112c28-28 43-52 58-83 13 26 25 48 48 69" fill="none" stroke="#547a6a" stroke-width="3"/><path d="M165 111c20-17 39-23 58-22" fill="none" stroke="#547a6a" stroke-width="2"/><path d="M210 54c14-8 27-8 39 0" fill="none" stroke="#b08b4c" stroke-width="4"/></svg></div>
+              <div class="k">赤纬 · 南北之偏</div><div class="v" id="decl">—</div><div class="d" id="declD">—</div>
+            </article>
+            <article class="card">
+              <div class="art" aria-hidden="true"><svg viewBox="0 0 300 140"><path d="M172 106c25-22 43-47 53-78 11 28 31 52 61 73" fill="none" stroke="#547a6a" stroke-width="3"/><path d="M167 109c30 0 74 0 110 0" stroke="#b79b66" stroke-width="2" fill="none"/></svg></div>
+              <div class="k">时角 · 午前午后</div><div class="v" id="ha">—</div><div class="d" id="haD">—</div>
+            </article>
+            <article class="card">
+              <div class="art" aria-hidden="true"><svg viewBox="0 0 300 140"><circle cx="246" cy="44" r="18" fill="#b86a50"/><path d="M167 109h110M194 96h70M217 80h48" stroke="#b08b4c" stroke-width="2" fill="none"/></svg></div>
+              <div class="k">日高 · 地平之上</div><div class="v" id="alt">—</div><div class="d" id="altD">—</div>
+            </article>
+            <article class="card">
+              <div class="art" aria-hidden="true"><svg viewBox="0 0 300 140"><path d="M190 112h90v-36h-90zM205 76V53h58v23M194 53h82l-20-15h-42z" fill="none" stroke="#547a6a" stroke-width="2.5"/></svg></div>
+              <div class="k">日方位角 · 八方定位</div><div class="v" id="az">—</div><div class="d" id="azD">—</div>
+            </article>
+            <article class="card">
+              <div class="art" aria-hidden="true"><svg viewBox="0 0 300 140"><path d="M179 111c17-21 33-31 52-30 19 0 33 10 48 30" fill="none" stroke="#b29259" stroke-width="4"/><path d="M190 100h79" stroke="#547a6a" stroke-width="2"/></svg></div>
+              <div class="k">昼长 · 出没之间</div><div class="v" id="daylen">—</div><div class="d">理论昼长</div>
+            </article>
+            <article class="card">
+              <div class="art" aria-hidden="true"><svg viewBox="0 0 300 140"><path d="M240 24v93M258 38v79M225 61l30-16M231 84l38-19M217 108l42-18" stroke="#557f6c" stroke-width="3" fill="none"/><path d="M194 111l47-72" stroke="#b08b4c" stroke-width="3"/></svg></div>
+              <div class="k">入射角 · 板面受光</div><div class="v" id="inc">—</div><div class="d" id="incD">—</div>
+            </article>
+          </div>
+
+          <div class="sunline">
+            <div><div class="branch-label">十二时辰</div><div class="branch" id="branch">—</div></div>
+            <div class="timebox"><span>真太阳时</span><strong id="tst">—</strong><span class="seal-mini">日</span></div>
+          </div>
+
+          <div class="viz">
+            <section class="viz-panel">
+              <div class="viz-bg" aria-hidden="true"><svg viewBox="0 0 760 360" preserveAspectRatio="none"><path d="M0 290c110-68 195-62 270-104 67-39 119-90 178-42 58 46 94 68 163 39 46-20 91-18 149 8v169H0z" fill="#6f9584"/><path d="M34 304c84-56 120-52 171-25 48 24 86 18 123-9" stroke="#567b6b" stroke-width="6" fill="none"/></svg></div>
+              <h2>圭表观日 · 当日轨迹</h2>
+              <div class="hint">纵为日高，横为时刻</div>
+              <div class="chart-wrap"><svg id="chart" viewBox="0 0 760 300" role="img" aria-label="太阳高度当日轨迹"></svg></div>
+            </section>
+            <section class="viz-panel">
+              <div class="viz-bg" aria-hidden="true"><svg viewBox="0 0 360 360"><path d="M10 320c68-62 102-56 149-28 45 27 87 22 129-18 22-21 39-23 62-5" stroke="#6f9584" stroke-width="6" fill="none"/></svg></div>
+              <h2>浑仪方盘 · 日向板向</h2>
+              <div class="compass-wrap"><svg id="compass" viewBox="0 0 340 260" role="img" aria-label="日向与板向极坐标方盘"></svg></div>
+              <div class="times"><div><b>日出</b><span id="sunrise">—</span></div><div><b>日中</b><span id="noon">—</span></div><div><b>日入</b><span id="sunset">—</span></div></div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="meander bottom" aria-hidden="true"></div>
+    <footer class="footer">
+      <div class="a">仰观天文 · 俯察地理 · 格物致知 · 与时偕行</div>
+      <div class="b">中华天文 · 传承千年 · 地区数据 Open-Meteo / GeoNames</div>
+      <span class="seal">历</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const D2R=Math.PI/180, R2D=180/Math.PI;
+function clamp(x,a,b){return Math.min(b,Math.max(a,x))}
+function norm360(x){return ((x%360)+360)%360}
+function pad(n){return String(Math.floor(n)).padStart(2,'0')}
+function fmtClock(min){if(!Number.isFinite(min))return '—';min=((min%1440)+1440)%1440;let h=Math.floor(min/60),m=Math.round(min%60);if(m===60){m=0;h=(h+1)%24}return `${pad(h)}:${pad(m)}`}
+function doy(y,m,d){return Math.floor((Date.UTC(y,m-1,d)-Date.UTC(y,0,0))/86400000)}
+function solarCore(lat,lon,tz,y,m,d,minutes){
+  const n=doy(y,m,d),hour=minutes/60;
+  const gamma=2*Math.PI/365*(n-1+(hour-12)/24);
+  const eq=229.18*(0.000075+0.001868*Math.cos(gamma)-0.032077*Math.sin(gamma)-0.014615*Math.cos(2*gamma)-0.040849*Math.sin(2*gamma));
+  const decl=0.006918-0.399912*Math.cos(gamma)+0.070257*Math.sin(gamma)-0.006758*Math.cos(2*gamma)+0.000907*Math.sin(2*gamma)-0.002697*Math.cos(3*gamma)+0.00148*Math.sin(3*gamma);
+  let tst=(minutes+eq+4*lon-60*tz)%1440;if(tst<0)tst+=1440;
+  let ha=tst/4-180;if(ha<-180)ha+=360;
+  const phi=lat*D2R,H=ha*D2R;
+  const cosz=clamp(Math.sin(phi)*Math.sin(decl)+Math.cos(phi)*Math.cos(decl)*Math.cos(H),-1,1);
+  const zen=Math.acos(cosz),alt=90-zen*R2D;
+  let az=norm360(Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(decl)*Math.cos(phi))*R2D+180);
+  if(Math.abs(Math.sin(zen))<1e-8)az=180;
+  return {eq,decl:decl*R2D,tst,ha,alt,az};
+}
+function compassName(az){const n=['北方','东北','东方','东南','南方','西南','西方','西北'];return n[Math.round(norm360(az)/45)%8]}
+function branchName(min){const h=((min/60)%24+24)%24;const names=['子时','丑时','寅时','卯时','辰时','巳时','午时','未时','申时','酉时','戌时','亥时'];return names[Math.floor(((h+1)%24)/2)]}
+function setMetric(id,num,unit=''){const el=$(id);if(!el)return;if(num===null||num===undefined||num==='—'){el.innerHTML='<span class="num">—</span>';return}el.innerHTML=`<span class="num">${num}</span>${unit?`<span class="unit">${unit}</span>`:''}`}
+let placeMatches=[],selectedTimezone='';
+function placeLabel(p){return [p.name,p.admin1,p.country].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(' · ')}
+function zoneOffsetAt(timeZone,ds,ts){
+  if(!timeZone||!ds||!ts)return NaN;
+  const[y,m,d]=ds.split('-').map(Number),q=ts.split(':').map(Number);
+  if(![y,m,d,q[0],q[1]].every(Number.isFinite))return NaN;
+  const base=Date.UTC(y,m-1,d,q[0],q[1],q[2]||0);
+  const readOffset=instant=>{
+    try{
+      const parts=new Intl.DateTimeFormat('en-US',{timeZone,timeZoneName:'longOffset',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit'}).formatToParts(new Date(instant));
+      const z=(parts.find(x=>x.type==='timeZoneName')||{}).value||'';
+      if(z==='GMT'||z==='UTC')return 0;
+      const mm=z.match(/(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?/);
+      if(!mm)return NaN;
+      return (mm[1]==='-'?-1:1)*(Number(mm[2])+Number(mm[3]||0)/60);
+    }catch(_){return NaN}
+  };
+  let off=readOffset(base);if(!Number.isFinite(off))return NaN;
+  const refined=readOffset(base-off*3600000);if(Number.isFinite(refined))off=refined;
+  return off;
+}
+function formatOffset(v){return Number.isInteger(v)?String(v):String(Math.round(v*100)/100)}
+function syncTimezoneFromPlace(){
+  if(!selectedTimezone)return false;
+  const off=zoneOffsetAt(selectedTimezone,$('date').value,$('time').value);
+  if(!Number.isFinite(off))return false;
+  $('tz').value=formatOffset(off);return true;
+}
+function applyPlace(i){
+  const p=placeMatches[i];if(!p)return;
+  $('lat').value=Number(p.latitude).toFixed(4);$('lon').value=Number(p.longitude).toFixed(4);selectedTimezone=p.timezone||'';
+  const hasOffset=syncTimezoneFromPlace();
+  $('placeStatus').textContent=`已采用：${placeLabel(p)} · ${Number(p.latitude).toFixed(4)}°, ${Number(p.longitude).toFixed(4)}°${p.timezone?` · ${p.timezone}`:''}${hasOffset?` · UTC${+$('tz').value>=0?'+':''}${$('tz').value}`:''}`;
+  $('placeStatus').className='place-status ok';calculate();
+}
+async function searchPlace(){
+  const q=$('place').value.trim(),btn=$('placeSearch'),sel=$('placeResults'),status=$('placeStatus');
+  if(q.length<2){status.textContent='请输入至少 2 个字符后再检索。';status.className='place-status warn';sel.className='place-results';return}
+  btn.disabled=true;btn.textContent='检索中';status.textContent='正在检索地区……';status.className='place-status';sel.className='place-results';
+  try{
+    const url=`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=zh&format=json`;
+    const r=await fetch(url,{headers:{'Accept':'application/json'}}),data=await r.json();
+    if(!r.ok)throw new Error(data.error||'地区检索失败');
+    placeMatches=Array.isArray(data.results)?data.results:[];
+    if(!placeMatches.length){status.textContent='未找到匹配地区，可尝试“城市, 省/州”或邮编。';status.className='place-status warn';return}
+    sel.innerHTML='';placeMatches.forEach((p,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=`${placeLabel(p)} · ${Number(p.latitude).toFixed(4)}, ${Number(p.longitude).toFixed(4)}${p.timezone?` · ${p.timezone}`:''}`;sel.appendChild(o)});
+    sel.className='place-results show';sel.value='0';applyPlace(0);
+    if(placeMatches.length>1)status.textContent+=' · 若非目标地点，请从下拉结果切换。';
+  }catch(e){status.textContent=`检索失败：${e&&e.message?e.message:'请检查网络连接'}`;status.className='place-status bad'}
+  finally{btn.disabled=false;btn.textContent='检索'}
+}
+function drawChart(params,main,sunrise,noon,sunset){
+  const svg=$('chart'),W=760,H=300,L=62,R=18,T=28,B=46,PW=W-L-R,PH=H-T-B;
+  let a=Math.max(0,sunrise-45),b=Math.min(1440,sunset+45);if(!Number.isFinite(a)||!Number.isFinite(b)||b<=a){a=240;b=1260}
+  const x=t=>L+(t-a)/(b-a)*PW,y=v=>T+(90-v)/90*PH;
+  let path='';const samples=[];
+  for(let t=a;t<=b;t+=8){const s=solarCore(params.lat,params.lon,params.tz,params.y,params.m,params.d,t);if(s.alt>=-1)samples.push([t,s.alt])}
+  samples.forEach((p,i)=>{path+=(i?'L':'M')+x(p[0]).toFixed(1)+' '+y(Math.max(0,p[1])).toFixed(1)+' '});
+  const grid=[0,30,60,90].map(v=>`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="#bcb4a1" stroke-width="1"/><text x="${L-12}" y="${y(v)+4}" text-anchor="end" font-size="13" fill="#536158">${v}°</text>`).join('');
+  const marks=[sunrise,noon,sunset].filter(Number.isFinite).map(t=>`<line x1="${x(t)}" y1="${T}" x2="${x(t)}" y2="${H-B}" stroke="#c8c0ab" stroke-dasharray="4 5"/><text x="${x(t)}" y="${H-18}" text-anchor="middle" font-size="12" fill="#59675f">${fmtClock(t)}</text>`).join('');
+  const cx=x(params.minutes),cy=y(clamp(main.alt,0,90));
+  svg.innerHTML=`<rect x="${L}" y="${T}" width="${PW}" height="${PH}" fill="rgba(255,255,255,.14)" stroke="#b5af9d"/>${grid}${marks}<path d="${path}" fill="none" stroke="#d2a02c" stroke-width="3.2" stroke-linecap="round"/><line x1="${cx}" y1="${T}" x2="${cx}" y2="${H-B}" stroke="#a24031" stroke-width="1.5" stroke-dasharray="6 5"/><circle cx="${cx}" cy="${cy}" r="6.5" fill="#b83c2c" stroke="#f4e6c6" stroke-width="2"/><text x="${Math.min(cx+14,W-190)}" y="${Math.max(T+18,cy-12)}" font-size="13" font-weight="700" fill="#273d35">今时 ${fmtClock(params.minutes)} · 日高 ${main.alt.toFixed(2)}°</text><text x="${W/2}" y="${H-2}" text-anchor="middle" font-size="13" fill="#405148">时刻</text>`;
+}
+function drawCompass(sunAz,panelAz){
+  const svg=$('compass'),cx=170,cy=126,r=82;
+  const pt=(az,rad)=>{const a=(az-90)*D2R;return[cx+Math.cos(a)*rad,cy+Math.sin(a)*rad]};
+  const[sx,sy]=pt(sunAz,r-8),[px,py]=pt(panelAz,r-18);
+  const ticks=Array.from({length:24},(_,i)=>{const a=i*15;const p1=pt(a,r-4),p2=pt(a,r+2);return `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" stroke="#a39a82" stroke-width="1"/>`}).join('');
+  svg.innerHTML=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="rgba(255,255,255,.15)" stroke="#8f8972" stroke-width="2"/>${ticks}<circle cx="${cx}" cy="${cy}" r="${r-18}" fill="none" stroke="#b8b09b" stroke-width="1" stroke-dasharray="4 4"/><circle cx="${cx}" cy="${cy}" r="${r-34}" fill="none" stroke="#d0c6af" stroke-width="1" stroke-dasharray="3 5"/><line x1="${cx}" y1="${cy-r-8}" x2="${cx}" y2="${cy+r+8}" stroke="#b6ad98"/><line x1="${cx-r-8}" y1="${cy}" x2="${cx+r+8}" y2="${cy}" stroke="#b6ad98"/><text x="${cx}" y="22" text-anchor="middle" font-size="16" font-weight="700" fill="#20332e">子 · 北</text><text x="${cx}" y="249" text-anchor="middle" font-size="16" font-weight="700" fill="#20332e">午 · 南</text><text x="26" y="${cy+5}" font-size="16" font-weight="700" fill="#20332e">西</text><text x="303" y="${cy+5}" font-size="16" font-weight="700" fill="#20332e">东</text><line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="#288257" stroke-width="5" stroke-linecap="round"/><circle cx="${px}" cy="${py}" r="5" fill="#288257"/><line x1="${cx}" y1="${cy}" x2="${sx}" y2="${sy}" stroke="#b83928" stroke-width="3"/><circle cx="${sx}" cy="${sy}" r="7" fill="#b83928" stroke="#f4e5c4" stroke-width="2"/><circle cx="${cx}" cy="${cy}" r="5" fill="#666250"/><text x="${cx}" y="${cy+28}" text-anchor="middle" font-size="13" fill="#30463d">板向 ${panelAz.toFixed(1)}°</text>`;
+}
+function calculate(){
+  const err=$('error');err.className='error';err.textContent='';
+  const lat=+$('lat').value,lon=+$('lon').value,tz=+$('tz').value,tilt=+$('tilt').value,panelAz=norm360(+$('panelAz').value),ds=$('date').value,ts=$('time').value;
+  if(!ds||!ts||![lat,lon,tz,tilt,panelAz].every(Number.isFinite)){err.textContent='请完整填写各项数值。';err.className='error show';return}
+  if(lat<-90||lat>90||lon<-180||lon>180||tz<-12||tz>14||tilt<0||tilt>90){err.textContent='输入超出合理范围：纬度 ±90°、经度 ±180°、时区 -12～+14、板倾 0～90°。';err.className='error show';return}
+  const[y,m,d]=ds.split('-').map(Number),parts=ts.split(':').map(Number),minutes=parts[0]*60+parts[1]+(parts[2]||0)/60;
+  const s=solarCore(lat,lon,tz,y,m,d,minutes),phi=lat*D2R,dec=s.decl*D2R,zen0=90.833*D2R;
+  const denom=Math.cos(phi)*Math.cos(dec);let cH=Math.abs(denom)<1e-12?NaN:(Math.cos(zen0)-Math.sin(phi)*Math.sin(dec))/denom;
+  let sunrise=NaN,sunset=NaN,noon=720-4*lon-s.eq+60*tz,daylen;
+  if(!Number.isFinite(cH)){const noonAlt=solarCore(lat,lon,tz,y,m,d,noon).alt;daylen=noonAlt>-0.833?24:0;if(daylen===24){sunrise=0;sunset=1440}}
+  else if(cH<=-1){daylen=24;sunrise=0;sunset=1440}
+  else if(cH>=1){daylen=0}
+  else{const h0=Math.acos(clamp(cH,-1,1))*R2D;sunrise=noon-4*h0;sunset=noon+4*h0;daylen=(sunset-sunrise)/60}
+  const altR=s.alt*D2R,azR=s.az*D2R,beta=tilt*D2R,pa=panelAz*D2R;
+  const sx=Math.cos(altR)*Math.sin(azR),sy=Math.cos(altR)*Math.cos(azR),sz=Math.sin(altR),nx=Math.sin(beta)*Math.sin(pa),ny=Math.sin(beta)*Math.cos(pa),nz=Math.cos(beta);
+  const cosInc=clamp(sx*nx+sy*ny+sz*nz,-1,1),inc=Math.acos(cosInc)*R2D;
+  setMetric('decl',`${s.decl>=0?'+':''}${s.decl.toFixed(2)}`,'°');$('declD').textContent=s.decl>=0?'日行偏北':'日行偏南';
+  setMetric('ha',`${s.ha>=0?'+':''}${s.ha.toFixed(2)}`,'°');$('haD').textContent=s.ha<0?'未及日中':'已过日中';
+  setMetric('alt',`${s.alt.toFixed(2)}`,'°');$('altD').textContent=s.alt>=0?'日临地平之上':'太阳在地平线下';
+  setMetric('az',`${s.az.toFixed(2)}`,'°');$('azD').textContent=compassName(s.az);
+  setMetric('daylen',daylen===24?'24.00':daylen===0?'0.00':`${daylen.toFixed(2)}`,'h');
+  setMetric('inc',`${inc.toFixed(2)}`,'°');$('incD').textContent=cosInc>0?'阳光照临板面':'太阳位于板面背侧';
+  $('branch').textContent=branchName(s.tst);$('tst').textContent=fmtClock(s.tst);
+  $('sunrise').textContent=daylen===24?'极昼':daylen===0?'无日出':fmtClock(sunrise);$('noon').textContent=fmtClock(noon);$('sunset').textContent=daylen===24?'极昼':daylen===0?'无日落':fmtClock(sunset);
+  drawChart({lat,lon,tz,y,m,d,minutes},s,sunrise,noon,sunset);drawCompass(s.az,panelAz);
+}
+$('calc').addEventListener('click',calculate);
+$('placeSearch').addEventListener('click',searchPlace);
+$('place').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchPlace()}});
+$('placeResults').addEventListener('change',()=>applyPlace(+$('placeResults').value));
+$('reset').addEventListener('click',()=>{selectedTimezone='';placeMatches=[];$('place').value='';$('placeResults').className='place-results';$('placeStatus').textContent='输入至少 2 个字符，可检索城市、地区或邮编。';$('placeStatus').className='place-status';$('lat').value='39.9042';$('lon').value='116.4074';$('date').value='2024-06-21';$('time').value='12:00:00';$('tz').value='8';$('tilt').value='30';$('panelAz').value='180';calculate()});
+for(const id of ['lat','lon','tilt','panelAz'])$(id).addEventListener('change',calculate);
+for(const id of ['date','time'])$(id).addEventListener('change',()=>{syncTimezoneFromPlace();calculate()});
+$('tz').addEventListener('change',()=>{selectedTimezone='';calculate()});
+$('lat').addEventListener('input',()=>{selectedTimezone=''});$('lon').addEventListener('input',()=>{selectedTimezone=''});
+calculate();
+// GitHub Pages 单文件版：无需本地 Service Worker。
+</script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","spa":2}' crossorigin="anonymous"></script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"3341080d8f324c64bf8190c05f6fb407","r":1,"spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
